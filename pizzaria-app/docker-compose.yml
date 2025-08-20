@@ -1,0 +1,26 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: pizzaria-backend
+    ports:
+      - "5001:5000"
+    networks:
+      - pizzaria-network
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: pizzaria-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - pizzaria-network
+
+networks:
+  pizzaria-network:
+    driver: bridge
