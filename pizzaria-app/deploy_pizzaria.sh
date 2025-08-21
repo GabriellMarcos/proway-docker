@@ -3,6 +3,8 @@
 # ===============================
 # Pizzaria Auto-Deploy Script
 # ===============================
+# Garantir que o script tem permissão de execução
+chmod +x "$0"
 
 # Variáveis
 REPO_URL="https://github.com/GabriellMarcos/proway-docker.git"
