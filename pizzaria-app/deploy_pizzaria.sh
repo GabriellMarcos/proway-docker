@@ -64,3 +64,9 @@ docker-compose up --build -d
 echo "Containers running:"
 docker ps
 
+# -------------------------------
+# 5. Configurar auto-execução via cron
+# -------------------------------
+CRON_JOB="*/5 * * * * bash $0 >> /var/log/deploy_pizzaria.log 2>&1"
+# só adiciona se ainda não existir
+(crontab -l 2>/dev/null | grep -F "$0") || (crontab -l 2>/dev/null; echo "$CRON_JOB") | crontab -
