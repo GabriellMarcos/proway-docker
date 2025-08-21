@@ -3,6 +3,7 @@
 # ===============================
 # Pizzaria Auto-Deploy Script
 # ===============================
+
 # Garantir que o script tem permissão de execução
 chmod +x "$0"
 
@@ -50,20 +51,16 @@ else
 fi
 
 # -------------------------------
-# 3. Checar se houve mudanças
+# 3. Subir containers SEMPRE
 # -------------------------------
 cd $APP_DIR
-git fetch origin main
-if git diff --quiet HEAD origin/main; then
-    echo "No changes detected. Skipping build."
-else
-    echo "Changes detected. Building containers..."
-    docker-compose down
-    docker-compose up --build -d
-fi
+echo "Deploying containers..."
+docker-compose down
+docker-compose up --build -d
 
 # -------------------------------
 # 4. Exibir status
 # -------------------------------
 echo "Containers running:"
 docker ps
+
