@@ -1,4 +1,137 @@
-# PENDENCIAS TÉCNICAS
+Pizza App — Auto Deploy
+Overview
+
+This repository contains a simple Pizza App and an auto-deploy script (deploy_pizzaria.sh) that installs requirements, pulls the repo, and deploys the app via Docker Compose. The script is intended to run on any Linux server and keep the application updated with the GitHub repository.
+
+Ports
+
+Frontend: 8080
+
+Backend: 5001
+
+Features
+
+Installs required packages (Docker, Docker Compose, Git) if missing.
+
+Performs git clone or git pull to update code.
+
+Rebuilds and deploys containers with docker-compose up --build -d.
+
+Ensures script is executable (chmod +x).
+
+Optionally installs a cron job to run the script every 5 minutes (auto-update).
+
+Logs are optionally written to /var/log/deploy_pizzaria.log (if configured).
+
+Files
+
+deploy_pizzaria.sh — the deploy script (make sure it is at proway-docker/pizzaria-app/deploy_pizzaria.sh)
+
+docker-compose.yml — compose file for the app (frontend / backend)
+
+Frontend and backend application folders
+
+Usage
+1) Clone repository (on target server)
+git clone https://github.com/GabriellMarcos/proway-docker.git
+cd proway-docker/pizzaria-app
+
+2) Make script executable (first time only)
+
+If you prefer to make it executable manually:
+
+chmod +x deploy_pizzaria.sh
+
+
+Note: the script tries to ensure it is executable by running chmod +x "$0" at the start, so you can also run it once with bash without manual chmod.
+
+3) Run deploy script (first run)
+# run with bash (works even if not executable yet)
+bash deploy_pizzaria.sh
+
+# or if executable
+./deploy_pizzaria.sh
+
+
+The script will:
+
+update the system packages,
+
+install Docker / Docker Compose / Git if necessary,
+
+clone or pull this repo,
+
+rebuild and start the containers,
+
+print docker ps output.
+
+4) (Optional) Install cron to auto-run every 5 minutes
+
+You can allow the script to add itself to crontab automatically if it contains the cron snippet. Or add it manually:
+
+# edit crontab for the current user
+crontab -e
+
+
+Add the line (adjust path if needed, use the absolute path to the script):
+
+*/5 * * * * bash /home/youruser/proway-docker/pizzaria-app/deploy_pizzaria.sh >> /var/log/deploy_pizzaria.log 2>&1
+
+
+This will run the deploy script every 5 minutes and append logs to /var/log/deploy_pizzaria.log.
+
+How to test the deployment
+
+Check running containers:
+
+docker ps
+
+
+Test frontend in a browser or curl:
+
+# from the server:
+curl -I http://localhost:8080
+
+# from another machine:
+curl -I http://<server-ip>:8080
+
+
+Test backend:
+
+curl -I http://localhost:5001
+
+
+Check logs if something fails:
+
+# Docker container logs
+docker logs <container_name>
+
+# Deploy script log (if using cron log)
+sudo tail -n 200 /var/log/deploy_pizzaria.log
+
+Submit to Classroom
+
+Push the changes (README + script) to GitHub:
+
+git add deploy_pizzaria.sh README.md
+git commit -m "Add deploy script and README"
+git push origin main
+
+
+Copy repository URL (e.g. https://github.com/GabriellMarcos/proway-docker).
+
+Open Google Classroom assignment → Add or create → Link → paste the GitHub repo URL → Turn in / Mark as done.
+
+Notes / Considerations
+
+The script uses docker-compose commands. If your server uses newer Docker Compose v2, docker compose (space) works as well; adjust if needed.
+
+If you need immediate update on push (no 5-minute delay), consider setting up a webhook receiver (or GitHub Actions) to trigger the deploy script. For the course requirement, the cron-based auto-update is sufficient.
+
+Ports are fixed to 8080 (frontend) and 5001 (backend) per assignment requirement.
+
+
+# PENDENCIAS TÉCNICAS (JÁ FEITAS)
 Prezado ilustre DevOps, Não consegui criar o DockerFile para o projeto backend, pode me ajudar?
 
 Objetivos:
