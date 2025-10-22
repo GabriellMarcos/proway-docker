@@ -1,3 +1,5 @@
+name: CI
+
 on:
   push:
     branches: [ main ]
@@ -5,9 +7,13 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
-
     steps:
+      - uses: actions/checkout@v4
+      
+      - name: build
+        run: |
+          ls -la
+      
       - name: checagem
         run: |
           echo "Fazendo a checagem"
-
