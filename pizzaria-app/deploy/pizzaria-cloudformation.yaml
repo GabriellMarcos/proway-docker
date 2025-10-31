@@ -39,21 +39,6 @@ Resources:
         - Key: Name
           Value: pizzaria-subnet-gabrielm
 
-  # Internet Gateway (necessario para acesso publico)
-  PizzariaIGW:
-    Type: AWS::EC2::InternetGateway
-    Properties:
-      Tags:
-        - Key: Name
-          Value: pizzaria-igw-gabrielm
-
-  # Attach IGW na VPC
-  AttachGateway:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      VpcId: !Ref VpcId
-      InternetGatewayId: !Ref PizzariaIGW
-
   # Route Table
   PizzariaRouteTable:
     Type: AWS::EC2::RouteTable
@@ -62,15 +47,6 @@ Resources:
       Tags:
         - Key: Name
           Value: pizzaria-rtb-gabrielm
-
-  # Route para Internet
-  PizzariaRoute:
-    Type: AWS::EC2::Route
-    DependsOn: AttachGateway
-    Properties:
-      RouteTableId: !Ref PizzariaRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref PizzariaIGW
 
   # Associar Route Table com Subnet
   SubnetRouteTableAssociation:
@@ -118,9 +94,6 @@ Resources:
   # EC2 Instance
   PizzariaEC2:
     Type: AWS::EC2::Instance
-    DependsOn: 
-      - PizzariaRoute
-      - SubnetRouteTableAssociation
     Properties:
       InstanceType: !Ref InstanceType
       KeyName: !Ref KeyName
