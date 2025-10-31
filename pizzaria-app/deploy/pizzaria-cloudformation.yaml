@@ -1,11 +1,16 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Deploy Pizzaria App com Docker Compose na EC2'
+Description: 'Deploy Pizzaria App com Docker Compose na EC2 - Gabriel M'
 
 Parameters:
   KeyName:
     Description: Nome do Key Pair para acesso SSH
     Type: AWS::EC2::KeyPair::KeyName
     Default: gabrielm-keypair
+  
+  VpcId:
+    Description: ID da VPC onde criar os recursos
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-01367bb93348e0739
   
   InstanceType:
     Description: Tipo de instancia EC2
@@ -22,102 +27,211 @@ Parameters:
     Default: https://github.com/GabriellMarcos/proway-docker.git
 
 Resources:
+  # Subnet publica para a EC2
+  PizzariaSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VpcId
+      CidrBlock: 192.168.200.0/24
+      AvailabilityZone: us-east-2a
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: pizzaria-subnet-gabrielm
+
+  # Internet Gateway (necessario para acesso publico)
+  PizzariaIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: pizzaria-igw-gabrielm
+
+  # Attach IGW na VPC
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VpcId
+      InternetGatewayId: !Ref PizzariaIGW
+
+  # Route Table
+  PizzariaRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: pizzaria-rtb-gabrielm
+
+  # Route para Internet
+  PizzariaRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PizzariaRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref PizzariaIGW
+
+  # Associar Route Table com Subnet
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PizzariaSubnet
+      RouteTableId: !Ref PizzariaRouteTable
+
   # Security Group
   PizzariaSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: pizzaria-sg
-      GroupDescription: Security group para Pizzaria App
+      GroupName: pizzaria-sg-gabrielm
+      GroupDescription: Security group para Pizzaria App - Gabriel M
+      VpcId: !Ref VpcId
       SecurityGroupIngress:
         # SSH
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
           CidrIp: 0.0.0.0/0
+          Description: SSH access
         # Frontend
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
           CidrIp: 0.0.0.0/0
+          Description: Frontend Pizzaria
         # Backend
         - IpProtocol: tcp
           FromPort: 5001
           ToPort: 5001
           CidrIp: 0.0.0.0/0
+          Description: Backend API
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound
       Tags:
         - Key: Name
-          Value: pizzaria-sg
+          Value: pizzaria-sg-gabrielm
+        - Key: Owner
+          Value: Gabriel M
 
   # EC2 Instance
   PizzariaEC2:
     Type: AWS::EC2::Instance
+    DependsOn: 
+      - PizzariaRoute
+      - SubnetRouteTableAssociation
     Properties:
       InstanceType: !Ref InstanceType
       KeyName: !Ref KeyName
       ImageId: ami-0c55b159cbfafe1f0  # Amazon Linux 2 - us-east-2
-      SecurityGroups:
+      SubnetId: !Ref PizzariaSubnet
+      SecurityGroupIds:
         - !Ref PizzariaSecurityGroup
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -e
           
+          # Log tudo
+          exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+          
+          echo "=== Iniciando configuracao da Pizzaria App - Gabriel M ==="
+          
           # Atualizar sistema
+          echo "=== Atualizando sistema ==="
           yum update -y
           
           # Instalar Docker
+          echo "=== Instalando Docker ==="
           amazon-linux-extras install docker -y
           systemctl start docker
           systemctl enable docker
           usermod -a -G docker ec2-user
           
           # Instalar Docker Compose
+          echo "=== Instalando Docker Compose ==="
           curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           chmod +x /usr/local/bin/docker-compose
-          ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+          ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
           
           # Instalar Git
+          echo "=== Instalando Git ==="
           yum install git -y
           
           # Clonar repositorio
+          echo "=== Clonando repositorio ==="
           cd /home/ec2-user
           git clone ${GitHubRepo} proway-docker
+          chown -R ec2-user:ec2-user proway-docker
           cd proway-docker/pizzaria-app
           
           # Dar permissao ao script de deploy
           chmod +x deploy_pizzaria.sh
           
           # Executar deploy
-          bash deploy_pizzaria.sh
+          echo "=== Executando deploy ==="
+          sudo -u ec2-user bash deploy_pizzaria.sh
           
           # Configurar cron para auto-update (a cada 5 minutos)
+          echo "=== Configurando cron job ==="
           echo "*/5 * * * * bash /home/ec2-user/proway-docker/pizzaria-app/deploy_pizzaria.sh >> /var/log/deploy_pizzaria.log 2>&1" | crontab -u ec2-user -
           
           # Criar arquivo de log
           touch /var/log/deploy_pizzaria.log
           chown ec2-user:ec2-user /var/log/deploy_pizzaria.log
           
+          echo "=== Configuracao concluida! ==="
+          echo "=== Frontend: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8080 ==="
+          echo "=== Backend: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):5001/api/pizzas ==="
+          
       Tags:
         - Key: Name
-          Value: pizzaria-app-server
+          Value: pizzaria-app-gabrielm
+        - Key: Owner
+          Value: Gabriel M
+        - Key: Project
+          Value: Pizzaria App
 
 Outputs:
   InstanceId:
     Description: ID da instancia EC2
     Value: !Ref PizzariaEC2
+    Export:
+      Name: !Sub '${AWS::StackName}-InstanceId'
   
   PublicIP:
     Description: IP publico da instancia
     Value: !GetAtt PizzariaEC2.PublicIp
+    Export:
+      Name: !Sub '${AWS::StackName}-PublicIP'
+  
+  SubnetId:
+    Description: ID da subnet criada
+    Value: !Ref PizzariaSubnet
+    Export:
+      Name: !Sub '${AWS::StackName}-SubnetId'
+  
+  SecurityGroupId:
+    Description: ID do security group
+    Value: !Ref PizzariaSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityGroupId'
   
   FrontendURL:
-    Description: URL do frontend
+    Description: URL do frontend da Pizzaria
     Value: !Sub 'http://${PizzariaEC2.PublicIp}:8080'
   
   BackendURL:
-    Description: URL do backend
+    Description: URL da API backend
     Value: !Sub 'http://${PizzariaEC2.PublicIp}:5001/api/pizzas'
   
   SSHCommand:
     Description: Comando para acessar via SSH
     Value: !Sub 'ssh -i ${KeyName}.pem ec2-user@${PizzariaEC2.PublicIp}'
+  
+  VpcId:
+    Description: ID da VPC utilizada
+    Value: !Ref VpcId
+    Export:
+      Name: !Sub '${AWS::StackName}-VpcId'
